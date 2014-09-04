@@ -27,24 +27,31 @@ public class PassphraseSecretsImpl {
     /**
      * Derives an encryption key from x_passphrase, then uses this derived key
      * to encrypt x_plaintext. The resulting cipher text, plus meta data
-     * (version, salt, iv, @see SerializedSecretsV1) is serialized and returned.
+     * (version, salt, iv, @see SerializedSecretsV2) is serialized and returned.
      *
      * @param ctx
      * @param x_passphrase the passphrase used to PBE on plaintext to NOT WIPED
      * @param x_plaintext the plaintext to encrypt NOT WIPED
-     * @return instance of {@link SerializedSecretsV1}
+     * @return instance of {@link SerializedSecretsV2}
      * @throws GeneralSecurityException
      */
-    public SerializedSecretsV1 encryptWithPassphrase(Context ctx, char[] x_passphrase,
+    public SerializedSecretsV2 encryptWithPassphrase(Context ctx, char[] x_passphrase,
             byte[] x_plaintext, int pbkdf2_iter_count) throws GeneralSecurityException {
         SecretKeySpec x_passphraseKey = null;
         try {
+            byte kdfMode = Constants.KDF_USES_8BIT;
+            // if passphrase will not work with PBKDF2WithHmacSHA1 bug in <19
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                for (int i = 0; i < x_passphrase.length; i++)
+                    if (x_passphrase[i] > 0xff)
+                        kdfMode = Constants.KDF_USES_UNICODE;
+            }
             byte[] salt = generateSalt(Constants.PBKDF2_SALT_LEN_BYTES);
             byte[] iv = generateIv(Constants.GCM_IV_LEN_BYTES);
             x_passphraseKey = hashPassphrase(x_passphrase, salt, pbkdf2_iter_count);
             byte[] encryptedSecretKey = encryptSecretKey(x_passphraseKey, iv, x_plaintext);
-            SerializedSecretsV1 ss = new SerializedSecretsV1(Constants.VERSION_ONE,
-                    pbkdf2_iter_count, salt, iv, encryptedSecretKey);
+            SerializedSecretsV2 ss = new SerializedSecretsV2(
+                    kdfMode, pbkdf2_iter_count, salt, iv, encryptedSecretKey);
             return ss;
         } finally {
             Wiper.wipe(x_passphraseKey);
@@ -58,7 +65,7 @@ public class PassphraseSecretsImpl {
      * @return the plaintext
      * @throws GeneralSecurityException
      */
-    public byte[] decryptWithPassphrase(char[] x_passphrase, SerializedSecretsV1 ss)
+    public byte[] decryptWithPassphrase(char[] x_passphrase, SerializedSecretsV2 ss)
             throws GeneralSecurityException {
         byte[] x_plaintext = null;
         SecretKeySpec x_passphraseKey = null;
@@ -70,7 +77,21 @@ public class PassphraseSecretsImpl {
             byte[] iv = ss.iv;
             byte[] ciphertext = ss.ciphertext;
             int iterations = ss.pbkdf_iter_count;
-            x_passphraseKey = hashPassphrase(x_passphrase, salt, iterations);
+            // TODO try hashPassphrase8bit if above fails
+            switch (ss.passphrase8bit) {
+                case Constants.KDF_USES_UNICODE:
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT)
+                        throw new GeneralSecurityException(
+                                "Android < 19/4.4.2/KitKat cannot use unicode in KDF!");
+                    else
+                        x_passphraseKey = hashPassphrase(x_passphrase, salt, iterations);
+                    break;
+                case Constants.KDF_USES_8BIT:
+                    x_passphraseKey = hashPassphrase8bit(x_passphrase, salt, iterations);
+                    break;
+                case Constants.KDF_USES_UNKNOWN:
+                    break;
+            }
             x_plaintext = decryptWithKey(x_passphraseKey, iv, ciphertext);
 
             return x_plaintext;
@@ -96,16 +117,54 @@ public class PassphraseSecretsImpl {
         try {
             x_spec = new PBEKeySpec(x_password, salt, pbkdf2_iter_count,
                     Constants.PBKDF2_KEY_LEN_BITS);
+            /*
+             * Due to a bug, this key factory will only use lower 8-bits of
+             * passphrase chars on older Android versions (API level 18 and
+             * lower). It was fixed on KitKat and newer (API level 19 and
+             * higher).
+             */
+            // https://android-developers.blogspot.com/2013/12/changes-to-secretkeyfactory-api-in.html
+            SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
+
+            return new SecretKeySpec(factory.generateSecret(x_spec).getEncoded(), "AES");
+        } finally {
+            Wiper.wipe(x_spec);
+        }
+    }
+
+    /**
+     * Hash the password with PBKDF2 at Constants.PBKDF2_ITER_COUNT iterations.
+     * Does not wipe the password. This forces the buggy version before
+     * android-19/KitKat for use when compatibility is needed.
+     *
+     * @param x_password
+     * @param salt
+     * @return the AES SecretKeySpec containing the hashed password
+     * @throws GeneralSecurityException
+     */
+    public SecretKeySpec hashPassphrase8bit(char[] x_password, byte[] salt, int pbkdf2_iter_count)
+            throws GeneralSecurityException {
+        PBEKeySpec x_spec = null;
+        try {
+            x_spec = new PBEKeySpec(x_password, salt, pbkdf2_iter_count,
+                    Constants.PBKDF2_KEY_LEN_BITS);
+
             // https://android-developers.blogspot.com/2013/12/changes-to-secretkeyfactory-api-in.html
             SecretKeyFactory factory;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-               // Use compatibility key factory -- only uses lower 8-bits of passphrase chars
-               factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1And8bit");
+                /*
+                 * Use compatibility key factory -- only uses lower 8-bits of
+                 * passphrase chars
+                 */
+                factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1And8bit");
             } else {
-               // Traditional key factory. Will use lower 8-bits of passphrase chars on
-               // older Android versions (API level 18 and lower) and all available bits
-               // on KitKat and newer (API level 19 and higher).
-               factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
+                /*
+                 * Traditional key factory. Will use lower 8-bits of passphrase
+                 * chars on older Android versions (API level 18 and lower) and
+                 * all available bits on KitKat and newer (API level 19 and
+                 * higher).
+                 */
+                factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
             }
 
             return new SecretKeySpec(factory.generateSecret(x_spec).getEncoded(), "AES");

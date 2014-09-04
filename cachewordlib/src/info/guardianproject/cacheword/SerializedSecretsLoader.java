@@ -8,16 +8,18 @@ import java.nio.ByteBuffer;
  */
 public class SerializedSecretsLoader {
 
-    public SerializedSecretsV1 loadSecrets(byte[] secrets) {
+    public SerializedSecretsV2 loadSecrets(byte[] secrets) {
 
         try {
             int version = getVersion(secrets);
 
             switch (version) {
                 case Constants.VERSION_ZERO:
-                    return migrateV0toV1(new SerializedSecretsV0(secrets));
+                    return migrateV1toV2(migrateV0toV1(new SerializedSecretsV0(secrets)));
                 case Constants.VERSION_ONE:
-                    return new SerializedSecretsV1(secrets);
+                    return migrateV1toV2(new SerializedSecretsV1(secrets));
+                case Constants.VERSION_TWO:
+                    return new SerializedSecretsV2(secrets);
                 default:
                     return null;
             }
@@ -52,6 +54,22 @@ public class SerializedSecretsLoader {
                 ss0.ciphertext);
 
         return ss1;
+    }
+
+    /**
+     * Between V1 and V2, a flag for the {@link https
+     * ://android-developers.blogspot
+     * .com/2013/12/changes-to-secretkeyfactory-api-in.html 8-bit
+     * PBKDF2WithHmacSHA1 bug} was added
+     */
+    private SerializedSecretsV2 migrateV1toV2(SerializedSecretsV1 ss1) {
+        ss1.parse();
+        return new SerializedSecretsV2(
+                Constants.KDF_USES_UNKNOWN,
+                ss1.pbkdf_iter_count,
+                ss1.salt,
+                ss1.iv,
+                ss1.ciphertext);
     }
 
 }

@@ -27,7 +27,13 @@ public class Constants {
 
     public final static int VERSION_ZERO = 0;
     public final static int VERSION_ONE = 1;
-    public final static int VERSION_MAX = VERSION_ONE;
+    public final static int VERSION_TWO = 2;
+    public final static int VERSION_MAX = VERSION_TWO;
+
+    // 8-bit PBKDF2WithHmacSHA1 bug contants
+    public static final byte KDF_USES_UNICODE = 0;
+    public static final byte KDF_USES_8BIT = 1;
+    public static final byte KDF_USES_UNKNOWN = 127;
 
     public static final int STATE_UNKNOWN = -1;
     public static final int STATE_UNINITIALIZED = 0;
@@ -42,5 +48,4 @@ public class Constants {
     public static final int PBKDF2_KEY_LEN_BITS     = 128; // bits
     public static final int PBKDF2_SALT_LEN_BYTES   = 16;  // bytes, 128 bits
     public static final int PBKDF2_MINIMUM_ITERATION_COUNT = 1024;
-
 }

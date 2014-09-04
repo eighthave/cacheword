@@ -28,7 +28,7 @@ import javax.crypto.spec.SecretKeySpec;
  * <li>3. Use the derived key to encrypt the AES key in GCM mode
  * <li>4. Write the ciphertext, iv, and salt to disk
  * </ol>
- * The exact data written to disk is represented by the SerializedSecretsV1
+ * The exact data written to disk is represented by the SerializedSecretsV2
  * class.
  */
 public class PassphraseSecrets implements ICachedSecrets {
@@ -93,7 +93,7 @@ public class PassphraseSecrets implements ICachedSecrets {
     public static PassphraseSecrets fetchSecrets(Context ctx, char[] x_passphrase)
             throws GeneralSecurityException {
         byte[] preparedSecret = SecretsManager.getBytes(ctx, Constants.SHARED_PREFS_SECRETS);
-        SerializedSecretsV1 ss = new SerializedSecretsLoader().loadSecrets(preparedSecret);
+        SerializedSecretsV2 ss = new SerializedSecretsLoader().loadSecrets(preparedSecret);
         byte[] x_rawSecretKey = null;
 
         try {
@@ -161,7 +161,7 @@ public class PassphraseSecrets implements ICachedSecrets {
             throws GeneralSecurityException {
         PassphraseSecretsImpl crypto = new PassphraseSecretsImpl();
         int pbkdf2_iter_count = calibrateKDF(ctx);
-        SerializedSecretsV1 ss = crypto.encryptWithPassphrase(ctx, x_passphrase, x_plaintext,
+        SerializedSecretsV2 ss = crypto.encryptWithPassphrase(ctx, x_passphrase, x_plaintext,
                 pbkdf2_iter_count);
         byte[] preparedSecret = ss.concatenate();
         boolean saved = SecretsManager.saveBytes(ctx, Constants.SHARED_PREFS_SECRETS,
