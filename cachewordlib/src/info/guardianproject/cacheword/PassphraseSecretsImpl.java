@@ -3,6 +3,7 @@ package info.guardianproject.cacheword;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.os.Build;
 
 import java.security.GeneralSecurityException;
 import java.security.NoSuchAlgorithmException;
@@ -95,7 +96,17 @@ public class PassphraseSecretsImpl {
         try {
             x_spec = new PBEKeySpec(x_password, salt, pbkdf2_iter_count,
                     Constants.PBKDF2_KEY_LEN_BITS);
-            SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
+            // https://android-developers.blogspot.com/2013/12/changes-to-secretkeyfactory-api-in.html
+            SecretKeyFactory factory;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+               // Use compatibility key factory -- only uses lower 8-bits of passphrase chars
+               factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1And8bit");
+            } else {
+               // Traditional key factory. Will use lower 8-bits of passphrase chars on
+               // older Android versions (API level 18 and lower) and all available bits
+               // on KitKat and newer (API level 19 and higher).
+               factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
+            }
 
             return new SecretKeySpec(factory.generateSecret(x_spec).getEncoded(), "AES");
         } finally {
