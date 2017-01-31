@@ -61,11 +61,21 @@
     <if condition="${build.is.debug}">
       <then>
         <property name="jar.name" value="${jar.dir}/${ant.project.name}-${git.describe}-debug.jar" />
+        <property name="pom.name" value="${jar.dir}/${ant.project.name}-${git.describe}-debug.pom" />
       </then>
       <else>
         <property name="jar.name" value="${jar.dir}/${ant.project.name}-${git.describe}.jar" />
+        <property name="pom.name" value="${jar.dir}/${ant.project.name}-${git.describe}.pom" />
       </else>
     </if>
+
+    <!-- generate .pom for maven repos -->
+    <copy file="cachewordlib.pom" tofile="${pom.name}"/>
+    <replaceregexp file="${pom.name}"
+                   match="VERSION"
+                   replace="${git.describe}"
+                   flags="m"/>
+
     <property file="${sdk.dir}/tools/source.properties" />
     <delete file="${jar.name}"/>
     <mkdir dir="${jar.dir}" />
@@ -89,6 +99,11 @@
           <arg value="--armor" />
           <arg value="--detach-sign" />
           <arg value="${jar.name}" />
+        </exec>
+        <exec executable="gpg">
+          <arg value="--armor" />
+          <arg value="--detach-sign" />
+          <arg value="${pom.name}" />
         </exec>
       </else>
     </if>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>info.guardianproject.cacheword</groupId>
+  <artifactId>cachewordlib</artifactId>
+  <version>VERSION</version>
+  <name>CacheWord</name>
+  <url>https://guardianproject.info/code/cacheword</url>
+  <description>CacheWord is an Android library project for passphrase caching and management. It helps app developers securely generate, store, and access secrets derived from a user’s passphrase. It is designed to work easily with IOCipher and SQLCipher-for-Android, but it can be used any time an app needs to manage a password.</description>
+  <licenses>
+   <license>
+     <name>BSD 3-Clause</name>
+     <url>https://github.com/guardianproject/cacheword/blob/master/LICENSE</url>
+   </license>
+  </licenses>  
+  <developers>
+    <developer>
+      <id>guardianproject</id>
+      <name>Guardian Project</name>
+      <email>support@guardianproject.info</email>
+    </developer>
+  </developers>
+  <issueManagement>
+    <url>https://dev.guardianproject.info/projects/cacheword/issues</url>
+    <system>Redmine</system>
+  </issueManagement>
+  <scm>
+    <connection>scm:https://github.com/guardianproject/CacheWord.git</connection>
+    <developerConnection>scm:git@github.com:guardianproject/CacheWord.git</developerConnection>
+    <url>scm:https://github.com/guardianproject/CacheWord</url>
+  </scm>
+</project>
